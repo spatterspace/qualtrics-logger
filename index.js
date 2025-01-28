@@ -24,12 +24,13 @@ Qualtrics.SurveyEngine.addOnReady(function () {
         const value = Number(mutation.target.getAttribute("aria-valuenow"));
         const timestamp = Date.now();
 
-        const questionState = questionStates.get(questionId);
+        const sliderState = questionStates.get(questionId).sliders[sliderIndex];
 
-        const values = questionState.sliders[sliderIndex].values;
-
-        if (values.length === 0 || values.at(-1).value !== value) {
-          values.push({
+        if (
+          !(value === 0 && sliderState.mouseEvents.length === 0) &&
+          sliderState.values.at(-1)?.value !== value
+        ) {
+          sliderState.values.push({
             timestamp,
             value,
           });
@@ -113,7 +114,6 @@ Qualtrics.SurveyEngine.addOnReady(function () {
             });
           });
 
-          // Add mouse events
           sliderState.mouseEvents.forEach(({ timestamp, type }) => {
             allEvents.push({
               timestamp,
