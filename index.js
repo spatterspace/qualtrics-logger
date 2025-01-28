@@ -27,7 +27,7 @@ Qualtrics.SurveyEngine.addOnReady(function () {
         const sliderState = questionStates.get(questionId).sliders[sliderIndex];
 
         if (
-          !(value === 0 && sliderState.mouseEvents.length === 0) &&
+          sliderState.mouseEvents.length &&
           sliderState.values.at(-1)?.value !== value
         ) {
           sliderState.values.push({
