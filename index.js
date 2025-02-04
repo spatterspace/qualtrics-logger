@@ -1,12 +1,12 @@
 /**
  * @typedef {Object} SliderState
  * @property {Array<{timestamp: number, value: number}>} values - Slider value **changes** with timestamps
- * @property {Array<{timestamp: number, type: 'mouseenter' | 'mouseleave'}>} mouseEvents - Mouse interaction events with timestamps
+ * @property {Array<{timestamp: number, type: 'mouseenter' | 'mouseleave', value: number}>} mouseEvents - Mouse interaction events with timestamps. `value` is the slider value at the time of the event
  */
 
 /**
  * @typedef {Object} QuestionState
- * @property {string} importId - Id that should match the CSV output
+ * @property {string} questionId - Id that should match the CSV output
  * @property {Object.<string, SliderState>} sliders - Map of slider indices to their states
  */
 
@@ -43,13 +43,13 @@ Qualtrics.SurveyEngine.addOnReady(function () {
   );
 
   for (const questionContainer of questionsWithSliders) {
-    const importId = questionContainer.id;
+    const questionId = questionContainer.id;
     /** @type QuestionState */
     const questionState = {
-      importId,
+      questionId,
       sliders: {},
     };
-    questionStates.set(importId, questionState);
+    questionStates.set(questionId, questionState);
     const sliderContainers =
       questionContainer.querySelectorAll(".slider-container");
     for (const sliderContainer of sliderContainers) {
@@ -67,20 +67,28 @@ Qualtrics.SurveyEngine.addOnReady(function () {
 
       sliderContainer.addEventListener("mouseenter", () => {
         const timestamp = Date.now();
+        const value = Number(slider.getAttribute("aria-valuenow"));
         questionState.sliders[sliderIndex].mouseEvents.push({
           timestamp,
           type: "mouseenter",
+          value,
         });
       });
 
       sliderContainer.addEventListener("mouseleave", () => {
         const timestamp = Date.now();
+        const value = Number(slider.getAttribute("aria-valuenow"));
         questionState.sliders[sliderIndex].mouseEvents.push({
           timestamp,
           type: "mouseleave",
+          value,
         });
       });
     }
+  }
+
+  function formatTimestamp(timestamp) {
+    return new Date(timestamp).toISOString();
   }
 
   document.getElementById("NextButton").addEventListener("click", () => {
@@ -93,12 +101,28 @@ Qualtrics.SurveyEngine.addOnReady(function () {
       return;
     }
     let idNumber = localStorage.getItem("participantId");
-    // Convert question states to CSV
+
     const csvRows = [];
 
-    // Add header row
-    csvRows.push(["timestamp", "questionId", "sliderId", "eventType", "value"]);
+    csvRows.push([
+      "timestamp",
+      "time string",
+      "questionId",
+      "sliderId",
+      "eventType",
+      "value",
+    ]);
 
+    /**
+     * @type {Array<{
+     *   timestamp: number,
+     *   timeString: string,
+     *   questionId: string,
+     *   sliderId: string,
+     *   eventType: "value" | "mouseenter" | "mouseleave",
+     *   value: number
+     * }>}
+     */
     const allEvents = [];
 
     questionStates.forEach((questionState, questionId) => {
@@ -107,20 +131,22 @@ Qualtrics.SurveyEngine.addOnReady(function () {
           sliderState.values.forEach(({ timestamp, value }) => {
             allEvents.push({
               timestamp,
-              questionId: questionState.importId,
+              timeString: formatTimestamp(timestamp),
+              questionId: questionState.questionId,
               sliderId: sliderIndex,
               eventType: "value",
               value,
             });
           });
 
-          sliderState.mouseEvents.forEach(({ timestamp, type }) => {
+          sliderState.mouseEvents.forEach(({ timestamp, type, value }) => {
             allEvents.push({
               timestamp,
-              questionId: questionState.importId,
+              timeString: formatTimestamp(timestamp),
+              questionId: questionState.questionId,
               sliderId: sliderIndex,
               eventType: type,
-              value: "",
+              value,
             });
           });
         }
@@ -132,6 +158,7 @@ Qualtrics.SurveyEngine.addOnReady(function () {
     allEvents.forEach((event) => {
       csvRows.push([
         event.timestamp,
+        event.timeString,
         event.questionId,
         event.sliderId,
         event.eventType,
@@ -145,12 +172,18 @@ Qualtrics.SurveyEngine.addOnReady(function () {
 
     console.log(csvContent);
 
+    // Get all unique question IDs
+    const questionIds = Array.from(questionStates.keys()).join("_");
+
     // Manually creates a download link and clicks on it
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", idNumber + "_interactions.csv");
+    link.setAttribute(
+      "download",
+      `${idNumber}_${questionIds}_interactions.csv`
+    );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
