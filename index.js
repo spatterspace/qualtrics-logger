@@ -170,6 +170,7 @@ Qualtrics.SurveyEngine.addOnReady(function () {
       .map((row) => row.map((cell) => '"' + cell + '"').join(","))
       .join("\n");
 
+    console.log("idNumber", idNumber);
     console.log(csvContent);
 
     // Get all unique question IDs
@@ -182,7 +183,7 @@ Qualtrics.SurveyEngine.addOnReady(function () {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `${idNumber}_${questionIds}_interactions.csv`
+      idNumber + "_" + questionIds + "_" + "interactions.csv"
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
