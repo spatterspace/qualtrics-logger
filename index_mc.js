@@ -19,10 +19,34 @@ Qualtrics.SurveyEngine.addOnReady(function () {
     return;
   }
 
+  // If we're on an eyes open or eyes closed instructions page, just record when we move to the next page
+  const eyesClosed = document.getElementById("QID141");
+  const eyesOpen = document.getElementById("QID143");
+  if (eyesClosed || eyesOpen) {
+    function nextPageListener() {
+      const participantId = localStorage.getItem("participantId");
+      const eventType = eyesClosed ? "eyesClosed" : "eyesOpen";
+      downloadFile("", participantId + "_" + eventType + "_" + Date.now());
+    }
+    document
+      .getElementById("NextButton")
+      .addEventListener("click", nextPageListener);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        nextPageListener();
+      }
+    });
+
+    return;
+  }
+
   // Each question has a series of multiple choice boxes that are covered by a label hitbox.
   // Watch for events on that label and store them in interactionEvents
   const questionBodies = document.querySelectorAll(".QuestionBody");
-  const questionBody = questionBodies[0]; // There should only actually be 1 question per page
+  if (questionBodies.length > 1) {
+    return;
+  }
+  const questionBody = questionBodies[0];
 
   const interactionEvents = [];
 
@@ -74,14 +98,18 @@ Qualtrics.SurveyEngine.addOnReady(function () {
 
     const participantId = localStorage.getItem("participantId");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    downloadFile(
+      csvContent,
+      participantId + "_" + QID + "_" + "interactions.csv"
+    );
+  }
+
+  function downloadFile(content, filename) {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      participantId + "_" + QID + "_" + "interactions.csv"
-    );
+    link.setAttribute("download", filename);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
