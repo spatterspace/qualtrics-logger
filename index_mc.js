@@ -9,6 +9,9 @@
 // Change to false if you don't want to record mouseenter and mouseleave events (each CSV will then just have one row)
 const registerHoverEvents = true;
 
+/** @type {InteractionEvent[]} */
+const interactionEvents = [];
+
 Qualtrics.SurveyEngine.addOnReady(function () {
   // If we're on the page with the participant ID input, watch that and store it in localStorage
   const participantIdInput = document.getElementById("QR~QID1");
@@ -48,8 +51,6 @@ Qualtrics.SurveyEngine.addOnReady(function () {
   }
   const questionBody = questionBodies[0];
 
-  const interactionEvents = [];
-
   const labelBoxes = questionBody.querySelectorAll(".SingleAnswer");
 
   labelBoxes.forEach((labelBox) => {
@@ -75,45 +76,52 @@ Qualtrics.SurveyEngine.addOnReady(function () {
         pushEvent("mouseleave");
       });
     }
+  });
+});
 
-    // When a multiple choice is clicked, register that as the final event and trigger the CSV download
-    labelBox.addEventListener("click", () => {
-      pushEvent("click");
-      printInteractionEvents();
-    });
+Qualtrics.SurveyEngine.addOnPageSubmit(function (type) {
+  console.log("page submit");
+  interactionEvents.push({
+    QID: interactionEvents[interactionEvents.length - 1].QID,
+    timestamp: Date.now(),
+    choiceIndex: interactionEvents[interactionEvents.length - 1].choiceIndex,
+    type: "click",
+  });
+  printInteractionEvents();
+});
+
+function printInteractionEvents() {
+  const csvRows = [["timestamp", "QID", "choiceIndex", "type"]];
+
+  const QID = interactionEvents[0].QID; // If we go back to having multiple questions per page, this can be concatinated from a set
+
+  interactionEvents.forEach((event) => {
+    csvRows.push([event.timestamp, event.QID, event.choiceIndex, event.type]);
   });
 
-  function printInteractionEvents() {
-    const csvRows = [["timestamp", "QID", "choiceIndex", "type"]];
+  const csvContent = csvRows
+    .map((row) => row.map((cell) => '"' + cell + '"').join(","))
+    .join("\n");
 
-    const QID = interactionEvents[0].QID; // If we go back to having multiple questions per page, this can be concatinated from a set
+  const participantId = localStorage.getItem("participantId");
 
-    interactionEvents.forEach((event) => {
-      csvRows.push([event.timestamp, event.QID, event.choiceIndex, event.type]);
-    });
+  console.log("file generated");
 
-    const csvContent = csvRows
-      .map((row) => row.map((cell) => '"' + cell + '"').join(","))
-      .join("\n");
+  downloadFile(
+    csvContent,
+    participantId + "_" + QID + "_" + "interactions.csv"
+  );
+}
 
-    const participantId = localStorage.getItem("participantId");
-
-    downloadFile(
-      csvContent,
-      participantId + "_" + QID + "_" + "interactions.csv"
-    );
-  }
-
-  function downloadFile(content, filename) {
-    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-});
+function downloadFile(content, filename) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
