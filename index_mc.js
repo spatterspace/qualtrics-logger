@@ -79,12 +79,21 @@ Qualtrics.SurveyEngine.addOnReady(function () {
   });
 });
 
-Qualtrics.SurveyEngine.addOnPageSubmit(function (type) {
-  console.log("page submit");
+Qualtrics.SurveyEngine.addOnPageSubmit(function () {
+  if (Object.entries(Qualtrics.SurveyEngine.QuestionInfo).length > 1) {
+    return;
+  }
+  console.log("page submit", interactionEvents);
+  console.log(document.activeElement);
+  const clickedRadio = document.activeElement;
+  const [_, questionId, choiceIndex] = clickedRadio.id.split("~");
+  if (choiceIndex === undefined) {
+    return;
+  }
   interactionEvents.push({
-    QID: interactionEvents[interactionEvents.length - 1].QID,
+    QID: questionId,
     timestamp: Date.now(),
-    choiceIndex: interactionEvents[interactionEvents.length - 1].choiceIndex,
+    choiceIndex,
     type: "click",
   });
   printInteractionEvents();
